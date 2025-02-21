@@ -4,8 +4,21 @@
     <meta charset="utf-8"/>
     <title>Quiz</title>
     <style>
+        label {
+            font-size: 18pt;
+        }
+        input {
+            font-size: 14pt;
+        }
         #container {
             max-width: 600px;
+            margin: auto;
+        }
+        .hidden {
+            display: none;
+        }
+
+        #form table {
             margin: auto;
         }
 
@@ -27,7 +40,7 @@
             padding: 5px;
         }
 
-        button {
+        button, .submit {
             display: block;
             background-color: #fff;
             border: 1px solid #ccc;
@@ -49,7 +62,7 @@
             animation: tilt-horizontally .3s;
             animation-iteration-count: 3;
         }
-        button:enabled:hover {
+        button:enabled:hover, .submit:hover {
             background-color: #eee;
         }
         button:disabled:not(.correct):not(.wrong) {
@@ -67,6 +80,39 @@
 </head>
 <body>
 <div id="container">
+<div id="form">
+    <form>
+        <table>
+            <tbody>
+                <tr>
+                    <td><label for="file_id">File ID</label></td>
+                    <td><input id="file_id" name="file_id" value="1v4U9JbFq_X7eq5H3obuYsVe4eB1rxpVtKOf-LcXgs5g"></td>
+                </tr>
+                <tr>
+                    <td><label for="tab_name">Tab Name</label></td>
+                    <td><input id="tab_name" name="tab_name" value="Еда"></td>
+                </tr>
+                <tr>
+                    <td><label for="questions_column">Questions Column</label></td>
+                    <td><input id="questions_column" name="questions_column" value="Ελληνικό όνομα" </td>
+                </tr>
+                <tr>
+                    <td><label for="answers_column">Answers Column</label></td>
+                    <td><input id="answers_column" name="answers_column" value="Κατηγορία"></td>
+                </tr>
+                <tr>
+                    <td><label for="topic">Topic</label></td>
+                    <td><input id="topic" name="topic" value="What type of food?"></td>
+                </tr>
+                <tr>
+                    <td colspan="2">
+                        <input class="submit" type="submit" id="start" value="Start">
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </form>
+</div>
 <div id="main"></div>
 <div id="stat"></div>
 </div>
@@ -74,13 +120,25 @@
 <script>
 const SEPARATOR = ","
 
-const FILE_ID = '1v4U9JbFq_X7eq5H3obuYsVe4eB1rxpVtKOf-LcXgs5g'
-const TAB_NAME = 'Еда'
-const QUESTIONS_COLUMN = 'Ελληνικό όνομα'
-const ANSWERS_COLUMN = 'Κατηγορία'
-const TOPIC = "What type of food?"
+const URL_PARAMS = new URLSearchParams(window.location.search)
+
+function getParam(name, defaultValue) {
+    let value = URL_PARAMS.get(name)
+    if (value === null || value === "") {
+        return defaultValue
+    }
+    return value
+}
+
+const FILE_ID = getParam('file_id', '1v4U9JbFq_X7eq5H3obuYsVe4eB1rxpVtKOf-LcXgs5g')
+const TAB_NAME = getParam('tab_name')
+const QUESTIONS_COLUMN = getParam('questions_column')
+const ANSWERS_COLUMN = getParam('answers_column')
+const TOPIC = getParam('topic')
 
 const DataFrame = dfjs.DataFrame
+
+const form = document.getElementById("form")
 
 function getCSV(docKey, docSheet) {
     let url = "https://docs.google.com/spreadsheets/d/" + docKey + "/gviz/tq?tqx=out:csv&sheet=" + encodeURI(docSheet)
@@ -88,14 +146,20 @@ function getCSV(docKey, docSheet) {
     return df.then(df => df)
 }
 
-getCSV(FILE_ID, TAB_NAME).then(df => {
-    let arr = df.select(QUESTIONS_COLUMN, ANSWERS_COLUMN).toArray()
-    let questions = {}
-    for (let i = 0; i < arr.length; i++) {
-        questions[arr[i][0]] = arr[i][1]
-    }
-    new Quiz(TOPIC, questions).start()
-})
+if (TAB_NAME && QUESTIONS_COLUMN && ANSWERS_COLUMN && TOPIC) {
+    getCSV(FILE_ID, TAB_NAME).then(df => {
+        let arr = df.filter(row => (
+                row.get(ANSWERS_COLUMN) !== '' && row.get(ANSWERS_COLUMN) !== '-'
+                && row.get(QUESTIONS_COLUMN) !== '' && row.get(QUESTIONS_COLUMN) !== '-'
+            )).select(QUESTIONS_COLUMN, ANSWERS_COLUMN).toArray()
+        let questions = {}
+        for (let i = 0; i < arr.length; i++) {
+            questions[arr[i][0]] = arr[i][1]
+        }
+        new Quiz(TOPIC, questions).start()
+    })
+    form.classList.add("hidden")
+}
 
 class Question {
     constructor(
